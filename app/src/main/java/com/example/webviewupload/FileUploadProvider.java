@@ -11,10 +11,13 @@ import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import org.apache.commons.io.IOUtils;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 
 public class FileUploadProvider extends ContentProvider {
@@ -70,10 +73,21 @@ public class FileUploadProvider extends ContentProvider {
         File file = new File(getContext().getApplicationContext().getCacheDir(),
                 TextUtils.join(File.separator, segments));
 
+        InputStream inputStream = new FileInputStream(file);
+        ParcelFileDescriptor[] pipe;
         try {
-            return ParcelFileDescriptorUtils.pipeFrom(new FileInputStream(file));
+            pipe = ParcelFileDescriptor.createPipe();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        ParcelFileDescriptor readPart = pipe[0];
+        ParcelFileDescriptor writePart = pipe[1];
+        try {
+            IOUtils.copy(inputStream, new ParcelFileDescriptor.AutoCloseOutputStream(writePart));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        return readPart;
     }
 }
